@@ -4,27 +4,46 @@ FROM php:7.1-apache
 MAINTAINER Dan Gibson <daniel.gibson@xandermar.com>
 
 RUN a2enmod rewrite
-
 RUN docker-php-ext-install mysqli
 
 # install the PHP extensions we need
-RUN set -ex \
-	&& buildDeps=' \
-		libjpeg62-turbo-dev \
-		libpng12-dev \
+RUN set -ex; \
+	\
+	if command -v a2enmod; then \
+		a2enmod rewrite; \
+	fi; \
+	\
+	savedAptMark="$(apt-mark showmanual)"; \
+	\
+	apt-get update; \
+	apt-get install -y --no-install-recommends \
+		libjpeg-dev \
+		libpng-dev \
 		libpq-dev \
-	' \
-	&& apt-get update && apt-get install -y --no-install-recommends $buildDeps && rm -rf /var/lib/apt/lists/* \
-	&& docker-php-ext-configure gd \
-		--with-jpeg-dir=/usr \
-		--with-png-dir=/usr \
-	&& docker-php-ext-install -j "$(nproc)" gd mbstring opcache pdo pdo_mysql pdo_pgsql zip \
-# PHP Warning:  PHP Startup: Unable to load dynamic library '/usr/local/lib/php/extensions/no-debug-non-zts-20151012/gd.so' - libjpeg.so.62: cannot open shared object file: No such file or directory in Unknown on line 0
-# PHP Warning:  PHP Startup: Unable to load dynamic library '/usr/local/lib/php/extensions/no-debug-non-zts-20151012/pdo_pgsql.so' - libpq.so.5: cannot open shared object file: No such file or directory in Unknown on line 0
-	&& apt-mark manual \
-		libjpeg62-turbo \
-		libpq5 \
-	&& apt-get purge -y --auto-remove $buildDeps
+	; \
+	\
+	docker-php-ext-configure gd --with-png-dir=/usr --with-jpeg-dir=/usr; \
+	docker-php-ext-install -j "$(nproc)" \
+		gd \
+		opcache \
+		pdo_mysql \
+		pdo_pgsql \
+		zip \
+	; \
+	\
+# reset apt-mark's "manual" list so that "purge --auto-remove" will remove all build dependencies
+	apt-mark auto '.*' > /dev/null; \
+	apt-mark manual $savedAptMark; \
+	ldd "$(php -r 'echo ini_get("extension_dir");')"/*.so \
+		| awk '/=>/ { print $3 }' \
+		| sort -u \
+		| xargs -r dpkg-query -S \
+		| cut -d: -f1 \
+		| sort -u \
+		| xargs -rt apt-mark manual; \
+	\
+	apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false; \
+	rm -rf /var/lib/apt/lists/*
 
 # set recommended PHP.ini settings
 # see https://secure.php.net/manual/en/opcache.installation.php
@@ -36,5 +55,25 @@ RUN { \
 		echo 'opcache.fast_shutdown=1'; \
 		echo 'opcache.enable_cli=1'; \
 	} > /usr/local/etc/php/conf.d/opcache-recommended.ini
+
+
+# update apt
+RUN apt-get update
+
+# install composer
+RUN php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');"
+RUN php composer-setup.php
+RUN php -r "unlink('composer-setup.php');"
+RUN mv composer.phar /usr/local/bin/composer
+
+# install drush
+RUN composer require drush/drush:8
+RUN ln -s /var/www/html/vendor/drush/drush/drush /usr/local/bin/drush
+
+# install vim
+RUN apt-get install vim -y
+
+# install mysql-client
+RUN apt-get install mysql-client -y
 
 WORKDIR /var/www/html
