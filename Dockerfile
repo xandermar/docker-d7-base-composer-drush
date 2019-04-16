@@ -3,6 +3,7 @@ FROM php:7.1-apache
 
 MAINTAINER Dan Gibson <daniel.gibson@xandermar.com>
 
+# add rewrite and mysqli
 RUN a2enmod rewrite
 RUN docker-php-ext-install mysqli
 
