@@ -77,4 +77,12 @@ RUN apt-get install vim -y
 # install mysql-client
 RUN apt-get install mysql-client -y
 
+# install nodejs and npm
+RUN apt-get install nodejs npm -y
+
+# install compass (for sass)
+RUN apt-get install ruby-full -y
+RUN gem update --system
+RUN gem install compass -y
+
 WORKDIR /var/www/html
