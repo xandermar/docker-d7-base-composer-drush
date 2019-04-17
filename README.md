@@ -12,8 +12,10 @@ Docker Hub repository is located here:  [https://hub.docker.com/r/dgibson74/dock
  - 17 APR 2019 - added npm, nodejs, ruby and compass
 
 **Learn more about me here:**
+
 https://www.dangibson.me
 
 **Learn more about the company I work for:**
+
 https://www.xandermar.com
 
